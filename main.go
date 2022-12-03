@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// TODO: make zkill response struct like other.
+// TODO: Either have a function call inside goroutine or use a message channel , or goroutine inside a goroutine?
 // check/make bot functionality
 var addr = flag.String("addr", "zkillboard.com", "http service address")
 
@@ -38,7 +39,25 @@ type zKBlock struct {
 
 var s *discordgo.Session
 
-func zkillLink(s *discordgo.Session) {
+func postZKill(s *discordgo.Session, chanID string, kill zKBlock) {
+	/*
+		GroupID's
+		Titan: 30
+		Supercarrier: 659
+		Carrier: 547
+		Dreadnought: 485
+		FAX: 1538
+
+	*/
+
+	var discordMessage discordgo.MessageSend
+	switch kill.ShipGroupID {
+	case 30, 659, 547, 485, 1538:
+		discordMessage.Content = kill.URL
+		s.ChannelMessageSendComplex(chanID, &discordMessage)
+	}
+	discordMessage.Content = kill.URL
+	s.ChannelMessageSendComplex(chanID, &discordMessage)
 
 }
 
@@ -49,6 +68,10 @@ func main() {
 	}
 
 	discordToken := os.Getenv("BOT_TOKEN")
+	discordChannel := os.Getenv("PERSONAL_CHAN")
+	fmt.Printf("ChannelID: %T\n", discordChannel)
+	log.Println("ID", discordChannel)
+	//discordChannel = strconv.Itoa(discordChannel)
 	//guildToken := os.Getenv("GUILD_TOKEN")
 	//appToken := os.Getenv("APP_TOKEN")
 
@@ -59,6 +82,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Invalid bot:", err)
 	}
+	s.Identify.Intents = discordgo.IntentsGuildMessages
 	//https://pkg.go.dev/github.com/bwmarrin/discordgo#Session.ChannelMessageSendComplex
 	err = s.Open()
 	if err != nil {
@@ -82,6 +106,8 @@ func main() {
 
 	done := make(chan struct{})
 
+	var zResponse zKBlock
+
 	go func() {
 		defer close(done)
 		for {
@@ -91,8 +117,19 @@ func main() {
 				return
 			}
 			log.Printf("recv: %s", message)
+
+			json.Unmarshal(message, &zResponse)
+			if zResponse.KillID != 0 {
+				go postZKill(s, discordChannel, zResponse)
+			}
+			zResponse.KillID = 0
+
 		}
 	}()
+	_, err = s.ChannelMessageSend(discordChannel, "Listening")
+	if err != nil {
+		log.Println("DiscordSend:", err)
+	}
 
 	/*
 		Delve: 10000060
