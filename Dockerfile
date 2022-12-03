@@ -15,9 +15,10 @@ RUN go build -o main .
 FROM debian:bullseye-slim
 
 WORKDIR /app
+RUN apt-get update && apt-get install -y ca-certificates openssl
 
 COPY --from=builder /app/main .
 
-USER nonroot:nonroot
+#USER nonroot:nonroot
 
 CMD ["./main"]

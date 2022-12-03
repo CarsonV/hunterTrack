@@ -64,7 +64,7 @@ func postZKill(s *discordgo.Session, chanID string, kill zKBlock) {
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Error loading .env file")
 	}
 
 	discordToken := os.Getenv("BOT_TOKEN")
